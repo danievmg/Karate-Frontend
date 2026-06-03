@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: 'http://localhost:3000/api'
-});
-
+// Altere para a URL oficial do seu backend na Vercel
+const API_URL = "https://karate-backend.vercel.app";
 export const base44 = {
   atleta: {
     findMany: async () => (await api.get('/atletas')).data,
