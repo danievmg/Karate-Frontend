@@ -16,7 +16,7 @@ export default function Usuarios() {
 
   const fetchUsuarios = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/usuarios', {
+      const response = await fetch('https://karate-backend.vercel.app/api/usuarios', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -34,7 +34,7 @@ export default function Usuarios() {
 
   const mudarCargo = async (id, novoCargo) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/usuarios/${id}/role`, {
+      const response = await fetch(`https://karate-backend.vercel.app/api/usuarios/${id}/role`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ export default function Usuarios() {
     if (!window.confirm(`Tem a certeza que quer banir o utilizador ${nome}?`)) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/usuarios/${id}`, {
+      const response = await fetch(`https://karate-backend.vercel.app/api/usuarios/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

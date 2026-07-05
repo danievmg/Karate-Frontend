@@ -32,8 +32,8 @@ export default function Pontuacoes() {
   const saveKataMutation = useMutation({
     mutationFn: async (data) => {
       const url = data.id 
-        ? `http://localhost:3000/api/pontuacoes/kata/${data.id}` 
-        : 'http://localhost:3000/api/pontuacoes/kata';
+        ? `https://karate-backend.vercel.app/api/pontuacoes/kata/${data.id}` 
+        : 'https://karate-backend.vercel.app/api/pontuacoes/kata';
       const method = data.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -60,8 +60,8 @@ export default function Pontuacoes() {
   const saveKumiteMutation = useMutation({
     mutationFn: async (data) => {
       const url = data.id 
-        ? `http://localhost:3000/api/pontuacoes/kumite/${data.id}` 
-        : 'http://localhost:3000/api/pontuacoes/kumite';
+        ? `https://karate-backend.vercel.app/api/pontuacoes/kumite/${data.id}` 
+        : 'https://karate-backend.vercel.app/api/pontuacoes/kumite';
       const method = data.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -91,7 +91,7 @@ export default function Pontuacoes() {
   
   const deleteKataMutation = useMutation({
     mutationFn: async (id) => {
-      const response = await fetch(`http://localhost:3000/api/pontuacoes/kata/${id}`, { 
+      const response = await fetch(`https://karate-backend.vercel.app/api/pontuacoes/kata/${id}`, { 
         method: 'DELETE' 
       });
       if (!response.ok) throw new Error("Erro ao apagar");
@@ -105,7 +105,7 @@ export default function Pontuacoes() {
 
   const deleteKumiteMutation = useMutation({
     mutationFn: async (id) => {
-      const response = await fetch(`http://localhost:3000/api/pontuacoes/kumite/${id}`, { 
+      const response = await fetch(`https://karate-backend.vercel.app/api/pontuacoes/kumite/${id}`, { 
         method: 'DELETE' 
       });
       if (!response.ok) throw new Error("Erro ao apagar");

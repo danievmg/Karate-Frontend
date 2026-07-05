@@ -30,8 +30,8 @@ export default function Atletas() {
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       const url = data.id 
-        ? `http://localhost:3000/api/atletas/${data.id}` 
-        : `http://localhost:3000/api/atletas`;
+        ? `https://karate-backend.vercel.app/api/atletas/${data.id}` 
+        : `https://karate-backend.vercel.app/api/atletas`;
       const method = data.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -59,7 +59,7 @@ export default function Atletas() {
   // APAGAR VIA FETCH DIRETO
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const response = await fetch(`http://localhost:3000/api/atletas/${id}`, { 
+      const response = await fetch(`https://karate-backend.vercel.app/api/atletas/${id}`, { 
         method: 'DELETE' 
       });
       if (!response.ok) throw new Error("Erro ao apagar atleta");

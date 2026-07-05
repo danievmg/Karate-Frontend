@@ -25,8 +25,8 @@ export default function Eventos() {
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       const url = data.id 
-        ? `http://localhost:3000/api/eventos/${data.id}` 
-        : 'http://localhost:3000/api/eventos';
+        ? `https://karate-backend.vercel.app/api/eventos/${data.id}` 
+        : 'https://karate-backend.vercel.app/api/eventos';
       const method = data.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -53,7 +53,7 @@ export default function Eventos() {
   // MUTAÇÃO: APAGAR COM FETCH DIRETO NA API
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const response = await fetch(`http://localhost:3000/api/eventos/${id}`, { 
+      const response = await fetch(`https://karate-backend.vercel.app/api/eventos/${id}`, { 
         method: 'DELETE' 
       });
       if (!response.ok) throw new Error("Erro ao apagar o evento");

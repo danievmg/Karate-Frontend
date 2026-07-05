@@ -49,7 +49,7 @@ export default function LiveKumite() {
   // === MUTAÇÃO PARA SALVAR ===
   const saveMutation = useMutation({
     mutationFn: async (dadosLuta) => {
-      const response = await fetch('http://localhost:3000/api/pontuacoes/kumite', {
+      const response = await fetch('https://karate-backend.vercel.app/api/pontuacoes/kumite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dadosLuta)
