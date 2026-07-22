@@ -11,6 +11,21 @@ export const api = axios.create({
     }
 });
 
+// ==========================================
+// --- INTERCEPTADOR DE AUTENTICAÇÃO ---
+// ==========================================
+// Antes de qualquer requisição sair, ele verifica se tem token e anexa.
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('karate_token'); 
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
+// ==========================================
+
 export const base44 = {
     auth: {
         // Métodos de autenticação e registo adicionados para o ecrã "Nova Conta"
