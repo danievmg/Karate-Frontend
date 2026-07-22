@@ -19,7 +19,7 @@ export default function Cadastro() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, email, senha })
-      });
+    });
 
       const data = await response.json();
 
