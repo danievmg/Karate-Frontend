@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Play, Pause, RotateCcw, Save, Swords, Download } from 'lucide-react';
+import { Play, Pause, RotateCcw, Save, Swords, Download, Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 
@@ -12,7 +12,7 @@ export default function LiveKumite() {
   const token = localStorage.getItem('karate_token');
   const isLogged = !!token;
 
-  // === DADOS DO BANCO (Só busca se estiver logado) ===
+  // === DADOS DO BANCO ===
   const { data: atletas = [] } = useQuery({ 
     queryKey: ['atletas'], 
     queryFn: () => base44.atleta.findMany(),
@@ -27,37 +27,62 @@ export default function LiveKumite() {
   // === ESTADOS DO SETUP DA LUTA ===
   const [isLive, setIsLive] = useState(false);
   const [atletaId, setAtletaId] = useState('');
-  const [atletaManualNome, setAtletaManualNome] = useState(''); // Para usuários deslogados
+  const [atletaManualNome, setAtletaManualNome] = useState(''); 
   const [eventoId, setEventoId] = useState('');
   const [adversarioNome, setAdversarioNome] = useState('');
 
-  // === ESTADOS DA PONTUAÇÃO ===
+  // === ESTADOS DA PONTUAÇÃO & REGRAS ===
   const [ippon, setIppon] = useState(0); 
   const [wazaAri, setWazaAri] = useState(0); 
   const [yuko, setYuko] = useState(0); 
   const [pontosSofridos, setPontosSofridos] = useState(0);
+  const [senshu, setSenshu] = useState(null); // 'azul' | 'vermelho' | null
 
   // === ESTADOS DO CRONÔMETRO ===
   const [tempoSegundos, setTempoSegundos] = useState(180); 
   const [cronometroRodando, setCronometroRodando] = useState(false);
 
+  // === CÁLCULOS AUTOMÁTICOS DE PONTOS ===
+  const pontosNossos = (ippon * 3) + (wazaAri * 2) + (yuko * 1);
+  const atletaNomeDisplay = isLogged ? (atletas.find(a => String(a.id) === String(atletaId))?.nome || 'Atleta Azul') : (atletaManualNome || 'Atleta Azul');
+
+  // REGRA 1: Parada pelo Cronômetro
   useEffect(() => {
     let intervalo = null;
     if (cronometroRodando && tempoSegundos > 0) {
       intervalo = setInterval(() => setTempoSegundos(t => t - 1), 1000);
     } else if (tempoSegundos === 0) {
       setCronometroRodando(false);
-      if (isLive) toast.info("TEMPO ESGOTADO!");
+      if (isLive) toast.info("TEMPO ESGOTADO! VERIFIQUE O VENCEDOR.");
     }
     return () => clearInterval(intervalo);
   }, [cronometroRodando, tempoSegundos, isLive]);
 
-  // === CÁLCULOS AUTOMÁTICOS ===
-  const pontosNossos = (ippon * 3) + (wazaAri * 2) + (yuko * 1);
-  const resultadoLuta = pontosNossos > pontosSofridos ? 'vitoria' : pontosNossos < pontosSofridos ? 'derrota' : 'empate';
-  const atletaNomeDisplay = isLogged ? (atletas.find(a => String(a.id) === String(atletaId))?.nome || 'Atleta Azul') : (atletaManualNome || 'Atleta Azul');
+  // REGRA 2: Vantagem de 8 Pontos
+  useEffect(() => {
+    if (isLive) {
+      const diferenca = Math.abs(pontosNossos - pontosSofridos);
+      if (diferenca >= 8 && cronometroRodando) {
+        setCronometroRodando(false);
+        toast.success("DIFERENÇA DE 8 PONTOS! LUTA ENCERRADA.");
+      }
+    }
+  }, [pontosNossos, pontosSofridos, isLive, cronometroRodando]);
 
-  // === MUTAÇÃO PARA SALVAR (CORRIGIDA COM TOKEN) ===
+  // REGRA 3: Desempate com Senshu
+  let resultadoLuta = 'empate';
+  if (pontosNossos > pontosSofridos) {
+    resultadoLuta = 'vitoria';
+  } else if (pontosNossos < pontosSofridos) {
+    resultadoLuta = 'derrota';
+  } else {
+    // Em caso de empate nos pontos, olha quem tem Senshu
+    if (senshu === 'azul') resultadoLuta = 'vitoria';
+    else if (senshu === 'vermelho') resultadoLuta = 'derrota';
+    else resultadoLuta = 'empate_hantei';
+  }
+
+  // === MUTAÇÃO PARA SALVAR NO BANCO ===
   const saveMutation = useMutation({
     mutationFn: async (dadosLuta) => {
       const response = await fetch('https://karate-backend.vercel.app/api/pontuacoes/kumite', {
@@ -93,7 +118,8 @@ export default function LiveKumite() {
   };
 
   const salvarNoSistema = () => {
-    if (window.confirm(`Salvar luta no sistema? Resultado: ${resultadoLuta.toUpperCase()}`)) {
+    const textoResultado = resultadoLuta === 'vitoria' ? 'VITÓRIA' : resultadoLuta === 'derrota' ? 'DERROTA' : 'EMPATE/HANTEI';
+    if (window.confirm(`Salvar luta no sistema? Resultado: ${textoResultado}`)) {
       setCronometroRodando(false);
       saveMutation.mutate({
         atleta_id: atletaId,
@@ -105,8 +131,8 @@ export default function LiveKumite() {
         yuko,
         pontos_sofridos: pontosSofridos,
         pontos_totais: pontosNossos,
-        resultado: resultadoLuta,
-        observacoes: "Registrado via Placar Eletrônico"
+        resultado: resultadoLuta === 'empate_hantei' ? 'empate' : resultadoLuta, // O banco espera apenas 'empate'
+        observacoes: `Registrado via Placar Eletrônico. Senshu: ${senshu || 'Nenhum'}`
       });
     }
   };
@@ -114,20 +140,16 @@ export default function LiveKumite() {
   const gerarPDF = () => {
     const doc = new jsPDF();
     
-    // Configurações Globais
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.text("RELATÓRIO DE COMBATE - KUMITE", 20, 20);
+    doc.text("RELATÓRIO OFICIAL DE COMBATE - KUMITE", 20, 20);
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Data do Relatório: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 20, 28);
-    
-    // Traço
     doc.setLineWidth(1);
     doc.line(20, 32, 190, 32);
 
-    // Blocos de Informação
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text("ATLETA AZUL (AO)", 20, 45);
@@ -144,51 +166,56 @@ export default function LiveKumite() {
     doc.text("X", 98, 65);
     doc.text(`${pontosSofridos}`, 110, 65);
 
-    // Resultado
+    // Texto de Resultado com regras aplicadas
     doc.setFontSize(16);
-    let resultadoTexto = resultadoLuta === 'vitoria' ? `VITÓRIA: ${atletaNomeDisplay.toUpperCase()}` : 
-                         resultadoLuta === 'derrota' ? `VITÓRIA: ${adversarioNome.toUpperCase()}` : "EMPATE TÉCNICO";
+    let resultadoTexto = "";
+    if (resultadoLuta === 'vitoria') resultadoTexto = `VITÓRIA: ${atletaNomeDisplay.toUpperCase()}`;
+    else if (resultadoLuta === 'derrota') resultadoTexto = `VITÓRIA: ${adversarioNome.toUpperCase()}`;
+    else resultadoTexto = "EMPATE: NECESSÁRIO DECISÃO POR HANTEI";
+    
     doc.text(resultadoTexto, 20, 80);
+    
+    if (senshu) {
+      doc.setFontSize(10);
+      doc.setTextColor(211, 47, 47);
+      doc.text(`* Desempate aplicado por Vantagem de SENSHU (${senshu.toUpperCase()})`, 20, 88);
+      doc.setTextColor(0, 0, 0);
+    }
 
-    // Linha separadora
     doc.setLineWidth(0.5);
-    doc.line(20, 85, 190, 85);
+    doc.line(20, 95, 190, 95);
 
-    // Tabela de Golpes (Azul)
     doc.setFontSize(14);
-    doc.text("ANÁLISE DE GOLPES (AZUL)", 20, 100);
+    doc.setFont("helvetica", "bold");
+    doc.text("ANÁLISE DE GOLPES (AZUL)", 20, 110);
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Ippon (3 pts): ${ippon} acertos`, 20, 110);
-    doc.text(`Waza-ari (2 pts): ${wazaAri} acertos`, 20, 115);
-    doc.text(`Yuko (1 pt): ${yuko} acertos`, 20, 120);
+    doc.text(`Ippon (3 pts): ${ippon} acertos`, 20, 120);
+    doc.text(`Waza-ari (2 pts): ${wazaAri} acertos`, 20, 125);
+    doc.text(`Yuko (1 pt): ${yuko} acertos`, 20, 130);
 
-    // Gráfico de Barras Estilizado
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("GRÁFICO DE DESEMPENHO", 20, 140);
+    doc.text("GRÁFICO DE DESEMPENHO", 20, 150);
     
     const maxPontos = Math.max(pontosNossos, pontosSofridos, 1);
     const larguraMaxGrafico = 130;
     const barraAzul = (pontosNossos / maxPontos) * larguraMaxGrafico;
     const barraVermelha = (pontosSofridos / maxPontos) * larguraMaxGrafico;
 
-    // Barra Azul
-    doc.setFillColor(37, 99, 235); // Blue 600
-    doc.rect(50, 150, barraAzul, 12, 'F');
+    doc.setFillColor(37, 99, 235);
+    doc.rect(50, 160, barraAzul, 12, 'F');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("AZUL", 20, 158);
-    doc.text(`${pontosNossos} pts`, 55 + barraAzul, 158);
+    doc.text("AZUL", 20, 168);
+    doc.text(`${pontosNossos} pts`, 55 + barraAzul, 168);
 
-    // Barra Vermelha
-    doc.setFillColor(220, 38, 38); // Red 600
-    doc.rect(50, 170, barraVermelha, 12, 'F');
-    doc.text("VERMELHO", 20, 178);
-    doc.text(`${pontosSofridos} pts`, 55 + barraVermelha, 178);
+    doc.setFillColor(220, 38, 38);
+    doc.rect(50, 180, barraVermelha, 12, 'F');
+    doc.text("VERMELHO", 20, 188);
+    doc.text(`${pontosSofridos} pts`, 55 + barraVermelha, 188);
 
-    // Rodapé
     doc.setFontSize(8);
     doc.text("Documento gerado automaticamente pelo Dojo Performance Hub", 20, 280);
 
@@ -199,6 +226,7 @@ export default function LiveKumite() {
   const resetarLuta = () => {
     setIsLive(false);
     setIppon(0); setWazaAri(0); setYuko(0); setPontosSofridos(0);
+    setSenshu(null);
     setTempoSegundos(180); setCronometroRodando(false);
     setAtletaId(''); setAtletaManualNome(''); setAdversarioNome(''); setEventoId('');
   };
@@ -209,7 +237,6 @@ export default function LiveKumite() {
     return `${min}:${seg}`;
   };
 
-  // === TELA DE SETUP (ANTES DA LUTA) ===
   if (!isLive) {
     return (
       <div className="min-h-screen bg-[#F3F0E6] p-4 md:p-8 flex items-center justify-center">
@@ -279,7 +306,6 @@ export default function LiveKumite() {
     );
   }
 
-  // === TELA DA LUTA (PLACAR AO VIVO) ===
   return (
     <div className="min-h-screen bg-[#F3F0E6] flex flex-col font-sans">
       
@@ -303,9 +329,21 @@ export default function LiveKumite() {
         
         {/* LADO AZUL */}
         <div className="flex-1 bg-blue-600 border-b-[4px] md:border-b-0 md:border-r-[4px] border-black p-4 flex flex-col relative">
-          <div className="bg-white border-[3px] border-black p-2 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <h2 className="font-black uppercase text-sm md:text-xl truncate">{atletaNomeDisplay}</h2>
-            <p className="text-[10px] font-bold text-blue-600 uppercase">Atleta Azul (AO)</p>
+          <div className="bg-white border-[3px] border-black p-2 flex justify-between items-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex-1 truncate">
+              <h2 className="font-black uppercase text-sm md:text-xl truncate">{atletaNomeDisplay}</h2>
+              <p className="text-[10px] font-bold text-blue-600 uppercase">Atleta Azul (AO)</p>
+            </div>
+            
+            {/* BOTÃO SENSHU AZUL */}
+            <button 
+              onClick={() => setSenshu(senshu === 'azul' ? null : 'azul')} 
+              className={`flex flex-col items-center justify-center border-2 border-black p-1 ml-2 transition-colors ${senshu === 'azul' ? 'bg-[#FFEB3B] text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-slate-100 text-slate-400'}`}
+              title="Vantagem do Primeiro Ponto"
+            >
+              <Flag className="w-4 h-4" />
+              <span className="text-[8px] font-black uppercase">Senshu</span>
+            </button>
           </div>
           
           <div className="flex-1 flex items-center justify-center py-6">
@@ -338,9 +376,21 @@ export default function LiveKumite() {
 
         {/* LADO VERMELHO */}
         <div className="flex-1 bg-[#D32F2F] p-4 flex flex-col relative">
-          <div className="bg-white border-[3px] border-black p-2 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <h2 className="font-black uppercase text-sm md:text-xl truncate">{adversarioNome}</h2>
-            <p className="text-[10px] font-bold text-[#D32F2F] uppercase">Adversário (AKA)</p>
+          <div className="bg-white border-[3px] border-black p-2 flex justify-between items-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex-1 truncate">
+              <h2 className="font-black uppercase text-sm md:text-xl truncate">{adversarioNome}</h2>
+              <p className="text-[10px] font-bold text-[#D32F2F] uppercase">Adversário (AKA)</p>
+            </div>
+
+            {/* BOTÃO SENSHU VERMELHO */}
+            <button 
+              onClick={() => setSenshu(senshu === 'vermelho' ? null : 'vermelho')} 
+              className={`flex flex-col items-center justify-center border-2 border-black p-1 ml-2 transition-colors ${senshu === 'vermelho' ? 'bg-[#FFEB3B] text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-slate-100 text-slate-400'}`}
+              title="Vantagem do Primeiro Ponto"
+            >
+              <Flag className="w-4 h-4" />
+              <span className="text-[8px] font-black uppercase">Senshu</span>
+            </button>
           </div>
           
           <div className="flex-1 flex items-center justify-center py-6">
