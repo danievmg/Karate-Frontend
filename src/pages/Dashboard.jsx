@@ -9,6 +9,8 @@ import ResultadosPieChart from '@/components/dashboard/ResultadosPieChart';
 import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import KumiteStatsChart from '@/components/dashboard/KumiteStatsChart';
 import RadarPerfilChart from '@/components/dashboard/RadarPerfilChart';
+// NOVO COMPONENTE: Você precisará duplicar o ResultadosPieChart e renomeá-lo para aceitar Ippon, Waza-ari e Yuko
+import DistribuicaoGolpesChart from '@/components/dashboard/DistribuicaoGolpesChart'; 
 import { Users, Trophy, Target, Activity, Calendar, Zap, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -35,32 +37,48 @@ export default function Dashboard() {
   const derrotasKumite = pontosKumite.filter(p => p.resultado === 'derrota').length;
   const empatesKumite = pontosKumite.filter(p => p.resultado === 'empate').length;
 
+  const totalIppon = pontosKumite.reduce((acc, p) => acc + (parseInt(p.ippon) || 0), 0);
+  const totalWazaAri = pontosKumite.reduce((acc, p) => acc + (parseInt(p.waza_ari) || 0), 0);
+  const totalYuko = pontosKumite.reduce((acc, p) => acc + (parseInt(p.yuko) || 0), 0);
+
   const mediaKata = pontosKata.length > 0 
     ? (pontosKata.reduce((acc, p) => acc + (parseFloat(p.nota_final) || 0), 0) / pontosKata.length).toFixed(1)
     : '0.0';
 
   // === DADOS PARA DNA (RADAR) ===
   const radarData = [
-    { subject: 'IPPON', A: pontosKumite.reduce((acc, p) => acc + (p.ippon || 0), 0) },
-    { subject: 'WAZA-ARI', A: pontosKumite.reduce((acc, p) => acc + (p.waza_ari || 0), 0) },
-    { subject: 'YUKO', A: pontosKumite.reduce((acc, p) => acc + (p.yuko || 0), 0) },
+    { subject: 'IPPON', A: totalIppon },
+    { subject: 'WAZA-ARI', A: totalWazaAri },
+    { subject: 'YUKO', A: totalYuko },
     { subject: 'VOL. ATAQUE', A: pontosKumite.length },
     { subject: 'DEFESA', A: pontosKumite.length > 0 ? Math.max(0, 10 - (pontosKumite.reduce((acc, p) => acc + (p.pontos_sofridos || 0), 0) / pontosKumite.length)) : 0 },
   ];
 
-  // === DADOS PARA HISTÓRICO ===
+  // === DADOS PARA HISTÓRICO KATA ===
   const kataChartData = [...pontosKata].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-15).map(p => ({
     data: p.data ? format(new Date(p.data), 'dd/MM') : '',
     nota_tecnica: parseFloat(p.nota_tecnica) || 0,
     nota_atletica: parseFloat(p.nota_atletica) || 0
   }));
 
+  // === DADOS PARA VOLUME DE GOLPES ===
   const kumiteChartData = [...pontosKumite].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-15).map(p => ({
     data: p.data ? format(new Date(p.data), 'dd/MM') : '',
     ippon: parseInt(p.ippon) || 0,
     waza_ari: parseInt(p.waza_ari) || 0,
     yuko: parseInt(p.yuko) || 0
   }));
+
+  // === NOVO: DADOS PARA SALDO DE PONTOS (OFENSIVA VS DEFENSIVA) ===
+  const saldoPontosData = [...pontosKumite].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-15).map(p => {
+    // Calcula os pontos feitos caso o backend não retorne o total exato
+    const pontosFeitos = (parseInt(p.ippon || 0) * 3) + (parseInt(p.waza_ari || 0) * 2) + (parseInt(p.yuko || 0) * 1);
+    return {
+      data: p.data ? format(new Date(p.data), 'dd/MM') : '',
+      feitos: pontosFeitos,
+      sofridos: parseInt(p.pontos_sofridos) || 0
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#F3F0E6] p-4 md:p-6 lg:p-8 font-sans text-black overflow-x-hidden">
@@ -103,7 +121,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Grid - 1 col (mobile), 2 cols (tablet), 4 cols (desktop) */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <StatsCard title="Atletas no Filtro" value={atletaId === 'todos' ? atletas.length : 1} icon={Users} />
           <StatsCard title="Taxa de Vitória" value={pontosKumite.length > 0 ? `${((vitoriasKumite / pontosKumite.length) * 100).toFixed(0)}%` : '0%'} subtitle={`${vitoriasKumite} vitórias confirmadas`} icon={Zap} />
@@ -111,12 +129,12 @@ export default function Dashboard() {
           <StatsCard title="Ciclo Eventos" value={eventos.length} icon={Calendar} />
         </div>
 
-        {/* Evolução Grid - Stack em mobile/tablet, 2 cols em desktop */}
+        {/* LINHA 1: Evolução Geral e Saldo de Pontos (Reutilizando o PerformanceChart) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
           <div className="w-full overflow-hidden">
             <PerformanceChart 
               data={kataChartData} 
-              title={atletaId === 'todos' ? "Média de Evolução do Dojo" : "Evolução Individual (Kata)"} 
+              title={atletaId === 'todos' ? "Média de Evolução do Dojo (Kata)" : "Evolução Individual (Kata)"} 
               dataKey1="nota_tecnica" 
               dataKey2="nota_atletica" 
               label1="Técnica" 
@@ -124,14 +142,37 @@ export default function Dashboard() {
             />
           </div>
           <div className="w-full overflow-hidden">
+            <PerformanceChart 
+              data={saldoPontosData} 
+              title="Ofensiva vs Defensiva (Kumite)" 
+              dataKey1="feitos" 
+              dataKey2="sofridos" 
+              label1="Pontos Marcados" 
+              label2="Pontos Sofridos" 
+            />
+          </div>
+        </div>
+
+        {/* LINHA 2: Volume de Golpes e Distribuição (Arsenal) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+          <div className="w-full overflow-hidden">
             <KumiteStatsChart 
               data={kumiteChartData} 
               title="Volume de Golpes por Luta" 
             />
           </div>
+          <div className="w-full overflow-hidden">
+             {/* Você deve criar este componente copiando a lógica do ResultadosPieChart */}
+            <DistribuicaoGolpesChart 
+              ippon={totalIppon} 
+              wazaAri={totalWazaAri} 
+              yuko={totalYuko} 
+              title="Arsenal Ofensivo (Acertos)" 
+            />
+          </div>
         </div>
 
-        {/* Perfil e Mural Grid - Stack em mobile, 3 cols em desktop */}
+        {/* LINHA 3: Perfil, Resultados e Mural */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           <div className="w-full overflow-hidden md:col-span-1">
             <RadarPerfilChart data={radarData} title="DNA Técnico (Equilíbrio)" />
