@@ -19,6 +19,9 @@ export default function Atletas() {
 
   const queryClient = useQueryClient();
 
+  // PEGANDO O TOKEN DE ACESSO DO NAVEGADOR
+  const token = localStorage.getItem('karate_token');
+
   // BUSCA REAL: Conectado ao PostgreSQL
   const { data: atletas = [], isLoading } = useQuery({
     queryKey: ['atletas'],
@@ -26,7 +29,6 @@ export default function Atletas() {
   });
 
   // SALVAR (CRIAR E EDITAR) VIA FETCH DIRETO
- // SALVAR (CRIAR E EDITAR) VIA FETCH DIRETO
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       const url = data.id 
@@ -36,7 +38,10 @@ export default function Atletas() {
       
       const response = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // TOKEN INJETADO AQUI
+        },
         body: JSON.stringify(data)
       });
       
@@ -60,7 +65,10 @@ export default function Atletas() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const response = await fetch(`https://karate-backend.vercel.app/api/atletas/${id}`, { 
-        method: 'DELETE' 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}` // TOKEN INJETADO AQUI
+        }
       });
       if (!response.ok) throw new Error("Erro ao apagar atleta");
       return response.json();
