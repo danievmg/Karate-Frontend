@@ -4,7 +4,9 @@ import Pontuacoes from './pages/Pontuacoes';
 import Eventos from './pages/Eventos';
 import AtletaDetalhes from './pages/AtletaDetalhes';
 import LiveKumite from './pages/LiveKumite';
-import Usuarios from './pages/Usuarios'; // <-- Importação da nova página
+import Usuarios from './pages/Usuarios'; 
+import Dojos from './pages/Dojos';       // <-- Importação da página de Dojos
+import Vinculos from './pages/Vinculos'; // <-- Importação da página de Vínculos
 import __Layout from './Layout.jsx';
 
 export const PAGES = {
@@ -14,7 +16,9 @@ export const PAGES = {
     "Eventos": Eventos,
     "AtletaDetalhes": AtletaDetalhes,
     "LiveKumite": LiveKumite,
-    "Usuarios": Usuarios // <-- Nova página registada nas rotas
+    "Usuarios": Usuarios, 
+    "Dojos": Dojos,       // <-- Nova página registrada nas rotas
+    "Vinculos": Vinculos  // <-- Nova página registrada nas rotas
 };
 
 export const pagesConfig = {

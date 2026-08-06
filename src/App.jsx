@@ -87,8 +87,14 @@ const AuthenticatedApp = () => {
           roles = ['admin', 'mesario', 'sensei'];
         }
         
-        // Placar Ao Vivo (LiveKumite), Atletas e Eventos acessíveis por todos
-        if (pathLower === 'livekumite' || pathLower === 'atletas' || pathLower === 'eventos') {
+        // Placar Ao Vivo, Atletas, Eventos, Dojos e Vinculos acessíveis por todos
+        if (
+          pathLower === 'livekumite' || 
+          pathLower === 'atletas' || 
+          pathLower === 'eventos' ||
+          pathLower === 'dojos' ||
+          pathLower === 'vinculos'
+        ) {
             roles = ['admin', 'sensei', 'mesario', 'aluno'];
         }
 
